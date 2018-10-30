@@ -1,3 +1,2 @@
 1540861554 #jsapi Clearning some bugmail
-1540861578 #jsapi About to land some patches for
 1540861593 #jsapi About to land some patches for Bug 1502819
