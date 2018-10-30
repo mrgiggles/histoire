@@ -73,25 +73,58 @@ function toDateString(when) {
 
 // Linkify `message` string and add it to `parent` node.
 function linkifyAndAdd(parent, message) {
+    const searches = [
+        {
+            regexp: /bug (\d+)/i,
+            createLink: match => urls.bug(match[1])
+        },
+        {
+            // Shamelessly taken from Stackoverflow:
+            // https://stackoverflow.com/questions/3809401/what-is-a-good-regular-expression-to-match-a-url
+            regexp: /https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_\+.~#?&//=]*)/i,
+            createLink: match => match[0]
+        }
+    ];
+
     while (true) {
-        const matchBugNumber = message.match(/bug (\d+)/i);
-        if (matchBugNumber === null) {
-            const text = DOM.createText(message);
-            parent.appendChild(text);
+        let matches = [];
+        for (let search of searches) {
+            const match = message.match(search.regexp);
+            if (match !== null) {
+                matches.push({
+                    search,
+                    match
+                });
+            }
+        }
+
+        if (matches.length === 0) {
+            // Exit if no regular expressions matched.
             break;
         }
 
-        const [matched, bugNumber] = matchBugNumber;
+        matches.sort((a, b) => message.match.indexOf(a[0]) < message.match.indexOf(b[0]));
+
+        // Only consider the first match; others will be handled in the next
+        // iterations.
+        const { search, match } = matches[0];
+
+        const matched = match[0];
         const beforeText = message.substr(0, message.indexOf(matched));
         const afterText = message.substr(message.indexOf(matched) + matched.length, message.length);
 
         parent.appendChild(DOM.createText(beforeText));
 
-        const link = DOM.create("a", {href: urls.bug(bugNumber)});
+        const link = DOM.create("a", {href: search.createLink(match)});
         link.textContent = matched;
         parent.appendChild(link);
 
         message = afterText;
+    }
+
+    if (message) {
+        const text = DOM.createText(message);
+        parent.appendChild(text);
     }
 }
 
