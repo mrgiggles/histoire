@@ -175,7 +175,24 @@ function renderUser(name) {
     $LIST.appendChild(li);
 }
 
-function didLoadUsers(xhr) {
+function loadUsers() {
+    return new Promise(resolve => {
+        const xhr = new XMLHttpRequest();
+        xhr.addEventListener('load', ev => resolve(xhr));
+        xhr.open("GET", urls.list_users());
+
+        let lastEtag = localStorage.getItem(LOCALSTORAGE_USERS_LAST_ETAG_KEY);
+        if (lastEtag !== null) {
+            xhr.setRequestHeader('If-None-Match', lastEtag);
+        }
+
+        xhr.send();
+    });
+}
+
+async function getUserList() {
+    const xhr = await loadUsers();
+
     let status = (xhr.status / 100 | 0);
     // If the status code isn't in the 200 or 300 family, it's an error.
     if (status !== 2 && status !== 3) {
@@ -191,7 +208,7 @@ function didLoadUsers(xhr) {
             message = xhr.responseText;
         }
         $HEADER_TITLE.textContent = `Error when fetching the list of users: ${message}`;
-        return;
+        return null;
     }
 
     let users;
@@ -204,7 +221,7 @@ function didLoadUsers(xhr) {
             json = JSON.parse(xhr.responseText);
         } catch (ex) {
             alert("Error when parsing the list of users: " + ex.toString());
-            return;
+            return null;
         }
         users = json.map(x => x.name).filter(name => name !== '.gitattributes');
 
@@ -215,21 +232,13 @@ function didLoadUsers(xhr) {
         }
     }
 
-    users.map(renderUser);
-    $HEADER_TITLE.textContent = "Users";
+    return users;
 }
 
-function loadUsers() {
-    const xhr = new XMLHttpRequest();
-    xhr.addEventListener('load', ev => didLoadUsers(xhr));
-    xhr.open("GET", urls.list_users());
-
-    let lastEtag = localStorage.getItem(LOCALSTORAGE_USERS_LAST_ETAG_KEY);
-    if (lastEtag !== null) {
-        xhr.setRequestHeader('If-None-Match', lastEtag);
-    }
-
-    xhr.send();
+async function listUsers() {
+    const users = await getUserList();
+    users.map(renderUser);
+    $HEADER_TITLE.textContent = "Users";
 }
 
 function loadNotes(user, era) {
@@ -302,5 +311,5 @@ var user = params.get("user");
 if (user) {
     loadUserNotes(user, params.get("start"), params.get("end"));
 } else {
-    loadUsers();
+    listUsers();
 }
