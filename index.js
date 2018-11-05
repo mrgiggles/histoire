@@ -6,6 +6,8 @@ var ERA_SECONDS = 1000000;
 var LOCALSTORAGE_USERS_KEY = 'users';
 var LOCALSTORAGE_USERS_LAST_ETAG_KEY = 'users-last-etag';
 
+const ALL_USERS = "*";
+
 var DOM = {
     create(tag, attrs = {}) {
         const node = document.createElement(tag);
@@ -128,7 +130,7 @@ function linkifyAndAdd(parent, message) {
     }
 }
 
-function addItem({era, when, user, message, channel}) {
+function addItem({era, when, user, message, channel}, showUserLink) {
     const when_str = toDateString(when)
 
     const item = DOM.create("li");
@@ -144,6 +146,12 @@ function addItem({era, when, user, message, channel}) {
 
     // Let's try to find bug numbers.
     item.appendChild(DOM.createText(" - "));
+    if (showUserLink) {
+        const link = DOM.create("a", {href: urls.user_page(user) });
+        link.textContent = user;
+        item.appendChild(link);
+        item.appendChild(DOM.createText(" - "));
+    }
     linkifyAndAdd(item, message);
 
     item.appendChild(DOM.createText(" "));
@@ -154,7 +162,8 @@ function addItem({era, when, user, message, channel}) {
     $LIST.appendChild(item);
 };
 
-function parseResults(results, responseText, user, era, start, end) {
+function parseResults(responseText, user, era, start, end) {
+    const results = [];
     for (let line of responseText.split('\n')) {
         if (line === '') {
             continue;
@@ -165,6 +174,15 @@ function parseResults(results, responseText, user, era, start, end) {
         }
         results.push({user, era, when, channel, message});
     }
+    return results;
+}
+
+function renderAllUsersLink(users) {
+    let li = DOM.create("li");
+    let link = DOM.create("a", {href: urls.user_page(ALL_USERS)});
+    link.textContent = "All users";
+    li.appendChild(link);
+    $LIST.appendChild(li);
 }
 
 function renderUser(name) {
@@ -237,6 +255,10 @@ async function getUserList() {
 
 async function listUsers() {
     const users = await getUserList();
+    if (!users) {
+        return;
+    }
+    renderAllUsersLink(users);
     users.map(renderUser);
     $HEADER_TITLE.textContent = "Users";
 }
@@ -262,6 +284,16 @@ function computeEra(time_sec) {
 }
 
 async function loadUserNotes(user, start, end) {
+    let users;
+    if (user === ALL_USERS) {
+        users = await getUserList();
+        if (!users) {
+            return;
+        }
+    } else {
+        users = user.split(",").filter(x => x);
+    }
+
     if (!end) {
         end = Date.now() / 1000; // ms -> sec
     }
@@ -269,25 +301,27 @@ async function loadUserNotes(user, start, end) {
         start = end - LOOKBACK_SECONDS;
     }
 
-    const results = [];
-    let found = 0;
-
     DOM.clearChildren($LIST);
 
+    const resultPromises = [];
     for (let era = computeEra(end); era >= computeEra(start); era -= ERA_SECONDS) {
-        let xhr = await loadNotes(user, era);
+        for (const user of users) {
+            resultPromises.push((async () => {
+                const xhr = await loadNotes(user, era);
 
-        // 404 is ok; there might not be any entries for that time range.
-        if (xhr.status == 404) {
-            continue;
+                // 404 is ok; there might not be any entries for that time
+                // range.
+                if (xhr.status == 404) {
+                    return [];
+                }
+
+                return parseResults(xhr.responseText, user, era, start, end);
+            })());
         }
-
-        parseResults(results, xhr.responseText, user, era, start, end);
-        found++;
     }
-
     // All attempted data is loaded.
-    if (found == 0) {
+    const results = [].concat(...await Promise.all(resultPromises));
+    if (results.length === 0) {
         $HEADER_TITLE.textContent = "No updates found!";
         return;
     }
@@ -298,11 +332,15 @@ async function loadUserNotes(user, start, end) {
              : a.when >= b.when ? -1
                                 : 0;
     });
-    results.map(addItem);
+    const showUserLink = users.length > 1;
+    for (const result of results) {
+        addItem(result, showUserLink);
+    }
 
     const start_str = toDateString(start);
     const end_str = toDateString(end);
-    $HEADER_TITLE.textContent = `Updates for ${user}`;
+    const userName = user === ALL_USERS ? "all users" : users.join(", ");
+    $HEADER_TITLE.textContent = `Updates for ${userName}`;
     $HEADER_DATE.textContent = `from ${start_str} to ${end_str}`;
 }
 
