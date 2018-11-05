@@ -154,7 +154,7 @@ function addItem({era, when, user, message, channel}) {
     $LIST.appendChild(item);
 };
 
-function parseResults(info, responseText, user, era, start, end) {
+function parseResults(results, responseText, user, era, start, end) {
     for (let line of responseText.split('\n')) {
         if (line === '') {
             continue;
@@ -163,43 +163,8 @@ function parseResults(info, responseText, user, era, start, end) {
         if (when < start || when > end) {
             continue;
         }
-        info.results.push({user, era, when, channel, message});
+        results.push({user, era, when, channel, message});
     }
-}
-
-function dataLoaded(xhr, era, user, start, end, info) {
-    info.sofar++;
-
-    // 404 is ok; there might not be any entries for that time range.
-    if (xhr.status != 404) {
-        info.found++;
-        parseResults(info, xhr.responseText, user, era, start, end);
-    }
-
-    if (info.sofar < info.total) {
-        return;
-    }
-
-    // All attempted data is loaded.
-
-    if (info.found == 0) {
-        $HEADER_TITLE.textContent = "No updates found!";
-        return;
-    }
-
-    // Sort results by reverse date before rendering them.
-
-    info.results.sort((a, b) => {
-        return a.when < b.when  ? 1
-             : a.when >= b.when ? -1
-                                : 0;
-    });
-    info.results.map(addItem);
-
-    const start_str = toDateString(start);
-    const end_str = toDateString(end);
-    $HEADER_TITLE.textContent = `Updates for ${user}`;
-    $HEADER_DATE.textContent = `from ${start_str} to ${end_str}`;
 }
 
 function renderUser(name) {
@@ -267,25 +232,27 @@ function loadUsers() {
     xhr.send();
 }
 
-function loadNotes(user, era, start, end, info) {
+function loadNotes(user, era) {
     // index.html and index.js are loaded through rawgit.com, which routes them
     // through a CDN that caches aggressively. That doesn't work for the data
     // files, which are expected to be updated frequently. So we go through
     // github directly for those -- but note, not the /raw/ URL, since that
     // does not allow CORS, but the raw.githubusercontent.com link.
 
-    const xhr = new XMLHttpRequest();
-    xhr.responseType = 'text';
-    xhr.addEventListener('load', ev => dataLoaded(xhr, era, user, start, end, info));
-    xhr.open("GET", urls.data(user, era));
-    return xhr;
+    return new Promise(resolve => {
+        const xhr = new XMLHttpRequest();
+        xhr.responseType = 'text';
+        xhr.addEventListener('load', ev => resolve(xhr));
+        xhr.open("GET", urls.data(user, era));
+        xhr.send();
+    });
 }
 
 function computeEra(time_sec) {
     return time_sec - (time_sec % ERA_SECONDS);
 }
 
-function loadUserNotes(user, start, end) {
+async function loadUserNotes(user, start, end) {
     if (!end) {
         end = Date.now() / 1000; // ms -> sec
     }
@@ -293,23 +260,41 @@ function loadUserNotes(user, start, end) {
         start = end - LOOKBACK_SECONDS;
     }
 
-    let total = 0;
-    for (let t = computeEra(start); t <= computeEra(end); t += ERA_SECONDS) {
-        total++;
-    }
-
-    const info = {
-        total,
-        sofar: 0,
-        found: 0,
-        results: []
-    };
+    const results = [];
+    let found = 0;
 
     DOM.clearChildren($LIST);
 
     for (let era = computeEra(end); era >= computeEra(start); era -= ERA_SECONDS) {
-        loadNotes(user, era, start, end, info).send();
+        let xhr = await loadNotes(user, era);
+
+        // 404 is ok; there might not be any entries for that time range.
+        if (xhr.status == 404) {
+            continue;
+        }
+
+        parseResults(results, xhr.responseText, user, era, start, end);
+        found++;
     }
+
+    // All attempted data is loaded.
+    if (found == 0) {
+        $HEADER_TITLE.textContent = "No updates found!";
+        return;
+    }
+
+    // Sort results by reverse date before rendering them.
+    results.sort((a, b) => {
+        return a.when < b.when  ? 1
+             : a.when >= b.when ? -1
+                                : 0;
+    });
+    results.map(addItem);
+
+    const start_str = toDateString(start);
+    const end_str = toDateString(end);
+    $HEADER_TITLE.textContent = `Updates for ${user}`;
+    $HEADER_DATE.textContent = `from ${start_str} to ${end_str}`;
 }
 
 var params = new URL(document.location).searchParams;
