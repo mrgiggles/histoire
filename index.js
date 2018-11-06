@@ -131,33 +131,46 @@ function linkifyAndAdd(parent, message) {
 }
 
 function addItem({era, when, user, message, channel}, showUserLink) {
-    const when_str = toDateString(when)
-
     const item = DOM.create("li");
-    if (channel.startsWith("#")) {
-        let link = urls.logbot(channel.substr(1), when, user);
-        const ahref = DOM.create("a", {href: link});
-        ahref.textContent = when_str;
-        item.appendChild(ahref);
-    } else {
-        const text = DOM.createText(`${when_str}`);
-        item.appendChild(text);
-    }
 
-    // Let's try to find bug numbers.
-    item.appendChild(DOM.createText(" - "));
+    const header = DOM.create("div", {class: "update-header"});
+
+    const name = DOM.create("strong", {class: "name"});
+    const nameText = DOM.createText(user);
     if (showUserLink) {
         const link = DOM.create("a", {href: urls.user_page(user) });
-        link.textContent = user;
-        item.appendChild(link);
-        item.appendChild(DOM.createText(" - "));
+        link.appendChild(nameText);
+        name.appendChild(link);
+    } else {
+        name.appendChild(nameText);
     }
-    linkifyAndAdd(item, message);
+    header.appendChild(name);
 
-    item.appendChild(DOM.createText(" "));
-    const edit = DOM.create("a", {href: urls.edit(user, era), target: "_blank"});
-    edit.appendChild(DOM.create("img", {src: "icons/edit.png", height: 10}));
-    item.appendChild(edit);
+    header.appendChild(DOM.createText(" "));
+
+    const time = DOM.create("small", {class: "time"});
+    let timeText = DOM.createText(toDateString(when));
+    if (channel.startsWith("#")) {
+        let href = urls.logbot(channel.substr(1), when, user);
+        const link = DOM.create("a", {href});
+        link.appendChild(timeText);
+        time.appendChild(link);
+    } else {
+        time.appendChild(timeText);
+    }
+    header.appendChild(time);
+
+    header.appendChild(DOM.createText(" "));
+
+    const edit = DOM.create("a", {class: "edit", href: urls.edit(user, era), target: "_blank"});
+    edit.appendChild(DOM.create("img", {src: "icons/edit.png", height: 10, alt: "edit"}));
+    header.appendChild(edit);
+
+    item.appendChild(header);
+
+    const body = DOM.create("div", {class: "message"});
+    linkifyAndAdd(body, message);
+    item.appendChild(body);
 
     $LIST.appendChild(item);
 };
@@ -333,6 +346,7 @@ async function loadUserNotes(user, start, end) {
                                 : 0;
     });
     const showUserLink = users.length > 1;
+    $LIST.classList.add("update");
     for (const result of results) {
         addItem(result, showUserLink);
     }

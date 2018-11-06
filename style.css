@@ -32,3 +32,28 @@ li {
 #backtoindex {
     float: right;
 }
+
+.update {
+    border: 1px solid #808080;
+}
+
+.update li {
+    border-bottom: 1px solid #808080;
+    padding: 0.5em;
+}
+
+.update-header {
+    display: flex;
+}
+
+.update li .name {
+    flex: auto;
+}
+
+.update li .edit {
+    margin: 0 0.2em;
+}
+
+.update li .message {
+    padding: 0 0.5em;
+}
