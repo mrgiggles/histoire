@@ -9,6 +9,5 @@
 1541388707 #jsapi Trying to fix asan failures for Bug 1433007's patches
 1541388729 #jsapi Checking immigration details for Mozlando.
 1541397716 #jsapi I think I've fixed my asan issue, now I have a weird compacting issue...
-1541550062 #jsapi Reading, doing admin tasks.
-1541568448 #jsapi Reorganising patches for Bug 1433007, While I wait for builds reviewing the state of
+1541550062 #jsapi Reading, doing admin tasks, complaining about accessability.
 1541568537 #jsapi Reorganising patches for Bug 1433007, While I wait for builds reviewing the state of Bug 1466020
