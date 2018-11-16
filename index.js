@@ -105,7 +105,7 @@ function linkifyAndAdd(parent, message) {
             break;
         }
 
-        matches.sort((a, b) => message.match.indexOf(a[0]) < message.match.indexOf(b[0]));
+        matches.sort((a, b) => message.indexOf(a.match[0]) > message.indexOf(b.match[0]));
 
         // Only consider the first match; others will be handled in the next
         // iterations.
