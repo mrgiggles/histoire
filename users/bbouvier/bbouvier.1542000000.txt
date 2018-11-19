@@ -1,3 +1,10 @@
 1542050785 #jsapi spent a day with my beloved rr trying to understand what was going on in bug 1476251 and provided some help there
 1542304440 #jsapi diverted to work on awsm, my wasm fuzzer, and found a few bugs in cranelift and spidermonkey
-1542621253 #jsapi investigated crash in Cranelift running code in bug 1506675 and made a PR https://github.com/CraneStation/cranelift/pull/601
+1542504440 confession investigated crash in Cranelift running code in bug 1506675 and made a PR https://github.com/CraneStation/cranelift/pull/601
+1542504440 confession bug 1507100: don't hard-fail when Cranelift and wasm GC are enabled together
+1542504440 confession bug 1507418: update baldrdash after the multiple table update
+1542504440 confession found many fuzz bugs; triage, testing, fixing, etc. (eg bug 1507572, bug 1507785)
+1542504440 confession fuzz bug 1507730: keep lowering and codegen in sync for i64.mul on 32 bits platforms
+1542504440 confession fuzz bug 1507564: handle code labels on x86 in lazy function entry generation
+1542504440 confession investigated failure when tiering from Baseline to Cranelift in bug 1507820
+1542504440 confession binaryen: added an option to not fuzz atomics https://github.com/WebAssembly/binaryen/pull/1751
