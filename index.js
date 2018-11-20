@@ -162,8 +162,18 @@ function addItem({era, when, user, message, channel}, showUserLink) {
 
     header.appendChild(DOM.createText(" "));
 
-    const edit = DOM.create("a", {class: "edit", href: urls.edit(user, era), target: "_blank"});
-    edit.appendChild(DOM.create("img", {src: "icons/edit.png", height: 10, alt: "edit"}));
+    const edit = DOM.create("a", {
+      class: "edit",
+      href: urls.edit(user, era),
+      target: "_blank",
+      "aria-label": "edit",
+    });
+    // https://fontawesome.com/icons/edit?style=regular
+    edit.appendChild(DOM.create("i", {
+      class: "far fa-edit",
+      title: "edit",
+      "aria-hidden": "true",
+    }));
     header.appendChild(edit);
 
     item.appendChild(header);
