@@ -3,6 +3,8 @@ var LOOKBACK_SECONDS = 60 * 60 * 24 * 7 * 4; // 4 weeks
 
 var ERA_SECONDS = 1000000;
 
+var OLDEST_ERA = 1538000000;
+
 var LOCALSTORAGE_USERS_KEY = 'users';
 var LOCALSTORAGE_USERS_LAST_ETAG_KEY = 'users-last-etag';
 
@@ -71,6 +73,24 @@ function toDateString(when) {
   } catch (e) {
     return date.toLocaleString();
   }
+}
+
+function toDateInputString(when) {
+    const date = new Date(when * 1000);
+    return `${date.getFullYear()}-${(date.getMonth() + 1 + "").padStart(2, "0")}-${(date.getDate() + "").padStart(2, "0")}`;
+}
+
+function fromDateInputString(value) {
+    var m = value.match(/^([0-9]+)-([0-9]+)-([0-9]+)$/);
+    if (!m) {
+        return null;
+    }
+
+    var date = new Date(2000, 1, 1);
+    date.setYear(parseInt(m[1], 10));
+    date.setMonth(parseInt(m[2], 10) - 1);
+    date.setDate(parseInt(m[3], 10));
+    return Math.floor(date.getTime() / 1000);
 }
 
 // Linkify `message` string and add it to `parent` node.
@@ -317,11 +337,25 @@ async function loadUserNotes(user, start, end) {
         users = user.split(",").filter(x => x);
     }
 
-    if (!end) {
-        end = Date.now() / 1000; // ms -> sec
+    if (end) {
+        end = parseInt(end, 10);
+    } else {
+        end = Math.floor(Date.now() / 1000); // ms -> sec
     }
-    if (!start) {
+    if (start) {
+        start = parseInt(start, 10);
+    } else {
         start = end - LOOKBACK_SECONDS;
+    }
+
+    if (start < OLDEST_ERA) {
+        start = OLDEST_ERA;
+    }
+    if (end < OLDEST_ERA) {
+        end = OLDEST_ERA;
+    }
+    if (end < start) {
+        end = start;
     }
 
     DOM.clearChildren($LIST);
@@ -346,26 +380,50 @@ async function loadUserNotes(user, start, end) {
     const results = [].concat(...await Promise.all(resultPromises));
     if (results.length === 0) {
         $HEADER_TITLE.textContent = "No updates found!";
-        return;
+    } else {
+       // Sort results by reverse date before rendering them.
+       results.sort((a, b) => {
+           return a.when < b.when  ? 1
+                : a.when >= b.when ? -1
+                                   : 0;
+       });
+       const showUserLink = users.length > 1;
+       $LIST.classList.add("update");
+       for (const result of results) {
+           addItem(result, showUserLink);
+       }
     }
 
-    // Sort results by reverse date before rendering them.
-    results.sort((a, b) => {
-        return a.when < b.when  ? 1
-             : a.when >= b.when ? -1
-                                : 0;
-    });
-    const showUserLink = users.length > 1;
-    $LIST.classList.add("update");
-    for (const result of results) {
-        addItem(result, showUserLink);
-    }
-
-    const start_str = toDateString(start);
-    const end_str = toDateString(end);
     const userName = user === ALL_USERS ? "all users" : users.join(", ");
     $HEADER_TITLE.textContent = `Updates for ${userName}`;
-    $HEADER_DATE.textContent = `from ${start_str} to ${end_str}`;
+
+    var start_input = document.createElement("input");
+    start_input.type = "date";
+    start_input.min = toDateInputString(OLDEST_ERA);
+    start_input.value = toDateInputString(start);
+
+    var end_input = document.createElement("input");
+    end_input.type = "date";
+    end_input.min = toDateInputString(OLDEST_ERA);
+    end_input.value = toDateInputString(end);
+
+    var change_button = document.createElement("button");
+    change_button.textContent = "Change";
+    change_button.addEventListener("click", () => {
+        var new_start = fromDateInputString(start_input.value);
+        var new_end = fromDateInputString(end_input.value);
+        var url = new URL(document.location);
+        url.searchParams.set("start", new_start);
+        url.searchParams.set("end", new_end);
+        document.location.href = url.toString();
+    });
+
+    $HEADER_DATE.appendChild(document.createTextNode("from "));
+    $HEADER_DATE.appendChild(start_input);
+    $HEADER_DATE.appendChild(document.createTextNode(" to "));
+    $HEADER_DATE.appendChild(end_input);
+    $HEADER_DATE.appendChild(document.createTextNode(" "));
+    $HEADER_DATE.appendChild(change_button);
 }
 
 var params = new URL(document.location).searchParams;
